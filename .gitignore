@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -218,3 +219,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+=======
+__pycache__/
+*.pyc
+*.pyo
+*.db
+.env
+.venv/
+venv/
+.pytest_cache/
+instance/
+.DS_Store
+>>>>>>> 177035d (feat: initialize Studentvera AI prototype)

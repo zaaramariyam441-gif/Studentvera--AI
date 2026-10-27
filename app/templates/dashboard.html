@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | STUDENTVERA AI{% endblock %}
+{% block heading %}Overview{% endblock %}
+{% block content %}
+<div class="content-stack">
+    <div class="dashboard-top-row">
+        <div class="summary-card">
+            <span>Total Student Records</span>
+            <strong>{{ metrics.total_records }}</strong>
+        </div>
+        <div class="summary-card">
+            <span>Valid Records</span>
+            <strong>{{ metrics.valid_records }}</strong>
+        </div>
+        <div class="summary-card">
+            <span>Records Requiring Review</span>
+            <strong>{{ metrics.review_records }}</strong>
+        </div>
+        <div class="summary-card">
+            <span>Potential Duplicates</span>
+            <strong>{{ metrics.duplicate_records }}</strong>
+        </div>
+        <div class="summary-card">
+            <span>Intake Utilisation</span>
+            <strong>{{ metrics.intake_utilisation }}%</strong>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="panel-card">
+            <h3>Validation status distribution</h3>
+            <canvas id="validationChart"></canvas>
+        </div>
+        <div class="panel-card">
+            <h3>Department-wise student distribution</h3>
+            <canvas id="departmentChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel-card">
+        <h3>Programme-wise intake utilisation</h3>
+        <div class="intake-list">
+            {% for program in intake_programs %}
+            {% set count = (program.programme_name|default) %}
+            <div class="programme-row">
+                <div class="programme-meta">
+                    <strong>{{ program.programme_name }}</strong>
+                    <span>{{ program.intake_limit }} approved seats</span>
+                </div>
+                <div class="progress"><span style="width: {{ ((program.utilisation_percent() if program.intake_limit else 0) ) }}%"></span></div>
+                <div class="programme-stats">
+                    <span>{{ program.utilisation_percent() }}%</span>
+                    <small>{{ program.intake_limit - (students|default([], true)|length) }} remaining</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="panel-card">
+        <h3>Recent activity</h3>
+        <ul class="activity-list">
+            {% for event in recent_activity %}
+            <li>
+                <span class="dot"></span>
+                <div>
+                    <strong>{{ event.event_type|replace('_', ' ')|title }}</strong>
+                    <p>{{ event.description }}</p>
+                    <time>{{ event.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+                </div>
+            </li>
+            {% else %}
+            <li class="empty-state small">No activity yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+<script>
+const validationData = {{ validation_distribution | tojson }};
+const departmentData = {{ department_distribution | tojson }};
+const validationChart = new Chart(document.getElementById('validationChart'), {
+    type: 'doughnut',
+    data: {
+        labels: validationData.map(item => item[0] || 'Unknown'),
+        datasets: [{ data: validationData.map(item => item[1]), backgroundColor: ['#244536','#C5A15A','#727B7A','#A8B8A0'] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom'} } }
+});
+const departmentChart = new Chart(document.getElementById('departmentChart'), {
+    type: 'bar',
+    data: {
+        labels: departmentData.map(item => item[0] || 'Unknown'),
+        datasets: [{ label: 'Students', data: departmentData.map(item => item[1]), backgroundColor: '#A8B8A0' }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+});
+</script>
+{% endblock %}

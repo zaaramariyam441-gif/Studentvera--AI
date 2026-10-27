@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Add Student | STUDENTVERA AI{% endblock %}
+{% block heading %}Add Student{% endblock %}
+{% block content %}
+<div class="page-card narrow">
+    <h2>Student Registration</h2>
+    <form method="POST" class="form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Student ID<input name="student_id" value="{{ form_data.student_id if form_data else '' }}" required></label>
+        <label>Student Name<input name="name" value="{{ form_data.name if form_data else '' }}" required></label>
+        <label>APAAR ID<input name="apara_id" value="{{ form_data.apara_id if form_data else '' }}" required></label>
+        <label>Programme<input name="programme" value="{{ form_data.programme if form_data else '' }}" required></label>
+        <label>Department<input name="department" value="{{ form_data.department if form_data else '' }}" required></label>
+        <label>Academic Year<input name="academic_year" value="{{ form_data.academic_year if form_data else '' }}" required></label>
+        <label>Admission Date<input type="date" name="admission_date" value="{{ form_data.admission_date if form_data else '' }}" required></label>
+        <label>Admission Status
+            <select name="admission_status" required>
+                <option value="">Select</option>
+                <option value="ADMITTED" {% if form_data and form_data.admission_status == 'ADMITTED' %}selected{% endif %}>ADMITTED</option>
+                <option value="WAITLISTED" {% if form_data and form_data.admission_status == 'WAITLISTED' %}selected{% endif %}>WAITLISTED</option>
+                <option value="REJECTED" {% if form_data and form_data.admission_status == 'REJECTED' %}selected{% endif %}>REJECTED</option>
+            </select>
+        </label>
+        <div class="form-actions full-width">
+            <button type="submit" class="btn btn-primary">Save record</button>
+            <a href="{{ url_for('students.list_students') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

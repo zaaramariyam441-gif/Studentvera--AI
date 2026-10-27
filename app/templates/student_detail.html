@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Student Details | STUDENTVERA AI{% endblock %}
+{% block heading %}Student Record{% endblock %}
+{% block content %}
+<div class="page-card">
+    <div class="detail-header">
+        <div>
+            <h2>{{ student.name }}</h2>
+            <div class="muted">Student ID: {{ student.student_id }}</div>
+        </div>
+        <div class="status-inline">
+            <span class="status-badge status-{{ student.validation_status|lower|replace(' ', '-') }}">{{ student.validation_status }}</span>
+        </div>
+    </div>
+    <div class="info-grid">
+        <div><strong>APAAR ID</strong><span>{{ student.apara_id }}</span></div>
+        <div><strong>Programme</strong><span>{{ student.programme }}</span></div>
+        <div><strong>Department</strong><span>{{ student.department }}</span></div>
+        <div><strong>Academic Year</strong><span>{{ student.academic_year }}</span></div>
+        <div><strong>Admission Date</strong><span>{{ student.admission_date }}</span></div>
+        <div><strong>Admission Status</strong><span>{{ student.admission_status }}</span></div>
+        <div><strong>Created</strong><span>{{ student.created_at }}</span></div>
+        <div><strong>Updated</strong><span>{{ student.updated_at }}</span></div>
+    </div>
+    <div class="form-actions">
+        <a href="{{ url_for('students.edit_student', student_id=student.id) }}" class="btn btn-primary">Edit</a>
+        <a href="{{ url_for('students.list_students') }}" class="btn btn-secondary">Back to list</a>
+    </div>
+</div>
+{% endblock %}

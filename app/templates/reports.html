@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Reports | STUDENTVERA AI{% endblock %}
+{% block heading %}Reports{% endblock %}
+{% block content %}
+<div class="page-card">
+    <div class="toolbar">
+        <div>
+            <h2>Report Centre</h2>
+            <p class="muted">All reports are generated from current database records.</p>
+        </div>
+        <div class="toolbar-actions">
+            <a href="{{ url_for('reports.reports_page', type='summary') }}" class="btn btn-secondary">Summary</a>
+            <a href="{{ url_for('reports.reports_page', type='duplicates') }}" class="btn btn-secondary">Duplicates</a>
+            <a href="{{ url_for('reports.reports_page', type='incomplete') }}" class="btn btn-secondary">Incomplete</a>
+            <a href="{{ url_for('reports.export_report_csv', type=report_type) }}" class="btn btn-primary">Export CSV</a>
+        </div>
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Programme</th>
+                    <th>Department</th>
+                    <th>Academic Year</th>
+                    <th>Validation Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in rows %}
+                <tr>
+                    <td>{{ student.student_id }}</td>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.programme }}</td>
+                    <td>{{ student.department }}</td>
+                    <td>{{ student.academic_year }}</td>
+                    <td>{{ student.validation_status }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty-row">No records in this report.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

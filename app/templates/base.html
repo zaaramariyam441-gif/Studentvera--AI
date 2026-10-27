@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}STUDENTVERA AI{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-block">
+                <div class="brand-mark">S</div>
+                <div>
+                    <div class="brand-name">STUDENTVERA AI</div>
+                    <div class="brand-sub">Institution Portal</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard.overview') }}" class="nav-item {% if request.endpoint == 'dashboard.overview' %}active{% endif %}">Overview</a>
+                <a href="{{ url_for('students.list_students') }}" class="nav-item {% if 'students' in request.endpoint %}active{% endif %}">Student Records</a>
+                <a href="{{ url_for('students.create_student') }}" class="nav-item {% if request.endpoint == 'students.create_student' %}active{% endif %}">Add Student</a>
+                <a href="{{ url_for('verification.verification_page') }}" class="nav-item {% if 'verification' in request.endpoint %}active{% endif %}">Verification Centre</a>
+                <a href="{{ url_for('intake.intake_dashboard') }}" class="nav-item {% if 'intake' in request.endpoint %}active{% endif %}">Intake Monitoring</a>
+                <a href="{{ url_for('reports.reports_page') }}" class="nav-item {% if 'reports' in request.endpoint %}active{% endif %}">Reports</a>
+                <a href="{{ url_for('audit.audit_logs') }}" class="nav-item {% if 'audit' in request.endpoint %}active{% endif %}">Audit Logs</a>
+                <a href="{{ url_for('settings.settings_page') }}" class="nav-item {% if 'settings' in request.endpoint %}active{% endif %}">Settings</a>
+            </nav>
+        </aside>
+        <main class="main-panel">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <div class="page-title">{% block heading %}Overview{% endblock %}</div>
+                    <div class="institution-name">{{ settings.get('institution_name', 'AICTE Demo Institution') }}</div>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-wrapper hidden-mobile">
+                        <span class="search-icon" aria-hidden="true">⌕</span>
+                        <input type="text" placeholder="Search records" aria-label="Search" id="global-search">
+                    </div>
+                    <button class="icon-btn bell-btn" aria-label="Notifications">
+                        <span aria-hidden="true">🔔</span>
+                    </button>
+                    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+                        <span class="theme-toggle-icon">☀️</span>
+                    </button>
+                    <div class="user-chip">
+                        <span class="avatar">{{ current_user.username[0].upper() }}</span>
+                        <div>
+                            <strong>{{ current_user.username }}</strong>
+                            <small>{{ current_user.role }}</small>
+                        </div>
+                    </div>
+                    <a class="btn btn-ghost" href="{{ url_for('auth.logout') }}">Logout</a>
+                </div>
+            </header>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <div class="flash-container">
+                  {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% else %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container standalone">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% block auth_content %}{% endblock %}
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

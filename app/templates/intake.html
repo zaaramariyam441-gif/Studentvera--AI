@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Intake Monitoring | STUDENTVERA AI{% endblock %}
+{% block heading %}Intake Monitoring{% endblock %}
+{% block content %}
+<div class="page-card">
+    <div class="toolbar">
+        <div>
+            <h2>Programme Intake Dashboard</h2>
+            <p class="muted">Demo values are fictional configuration values and are not official AICTE approval data.</p>
+        </div>
+        {% if current_user.role == 'ADMIN' %}
+        <form method="POST" action="{{ url_for('intake.configure_intake') }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary" type="submit">Save limits</button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Programme</th>
+                    <th>Approved Intake</th>
+                    <th>Current Admissions</th>
+                    <th>Remaining Seats</th>
+                    <th>Utilisation</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.program.programme_name }}</td>
+                    <td>{{ row.program.intake_limit }}</td>
+                    <td>{{ row.current_count }}</td>
+                    <td>{{ row.remaining }}</td>
+                    <td>{{ row.utilisation }}%</td>
+                    <td><span class="status-badge status-{{ row.status|lower|replace(' ', '-') }}">{{ row.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if current_user.role == 'ADMIN' %}
+    <div class="page-card small">
+        <h3>Configure Intake Limits</h3>
+        <form method="POST" action="{{ url_for('intake.configure_intake') }}" class="form-grid compact">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% for row in rows %}
+            <label>{{ row.program.programme_name }}
+                <input type="number" name="limit_{{ row.program.id }}" value="{{ row.program.intake_limit }}" min="0">
+            </label>
+            {% endfor %}
+            <div class="form-actions full-width">
+                <button type="submit" class="btn btn-primary">Update intake</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

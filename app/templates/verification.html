@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Verification Centre | STUDENTVERA AI{% endblock %}
+{% block heading %}Verification Centre{% endblock %}
+{% block content %}
+<div class="page-card">
+    <div class="toolbar">
+        <div>
+            <h2>Verification Runner</h2>
+            <p class="muted">APAAR format checks are performed locally. Official identity verification requires an authorised integration.</p>
+        </div>
+        <div class="toolbar-actions">
+            <form method="POST" action="{{ url_for('verification.run_verification') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-primary" type="submit">Run validation</button>
+            </form>
+            <a href="{{ url_for('verification.export_validation_csv') }}" class="btn btn-secondary">Export results</a>
+        </div>
+    </div>
+    <form method="POST" action="{{ url_for('verification.run_verification') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr><th><input type="checkbox" id="selectAll"></th><th>Name</th><th>Student ID</th><th>Programme</th><th>Academic Year</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td><input type="checkbox" name="student_ids" value="{{ student.id }}"></td>
+                        <td>{{ student.name }}</td>
+                        <td>{{ student.student_id }}</td>
+                        <td>{{ student.programme }}</td>
+                        <td>{{ student.academic_year }}</td>
+                        <td><span class="status-badge status-{{ student.validation_status|lower|replace(' ', '-') }}">{{ student.validation_status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+<script>
+    document.getElementById('selectAll')?.addEventListener('change', function() {
+        document.querySelectorAll('input[name="student_ids"]').forEach(cb => cb.checked = this.checked);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Settings | STUDENTVERA AI{% endblock %}
+{% block heading %}Settings{% endblock %}
+{% block content %}
+<div class="page-card premium-settings">
+    <div class="settings-hero">
+        <div>
+            <p class="eyebrow">Institution control centre</p>
+            <h2>Luxury settings & operational profile</h2>
+        </div>
+        <div class="hero-pill">Live configuration</div>
+    </div>
+
+    <div class="settings-overview">
+        <div class="mini-stat">
+            <span>Institution</span>
+            <strong>{{ settings.get('institution_name', 'AICTE Demo Institution') }}</strong>
+        </div>
+        <div class="mini-stat">
+            <span>Academic year</span>
+            <strong>{{ settings.get('academic_year', '2026-27') }}</strong>
+        </div>
+        <div class="mini-stat">
+            <span>Verification rule</span>
+            <strong>{{ settings.get('apaar_rule', '^[A-Z0-9]{12}$') }}</strong>
+        </div>
+    </div>
+
+    <form method="POST" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="settings-grid">
+            <div class="settings-card">
+                <h3>Brand identity</h3>
+                <label>Institution display name<input name="institution_name" value="{{ settings.get('institution_name', '') }}" required></label>
+                <label>Brand tagline<input name="institution_tagline" value="{{ settings.get('institution_tagline', '') }}" placeholder="Excellence in student intelligence and compliance"></label>
+                <label>City / campus<input name="institution_city" value="{{ settings.get('institution_city', '') }}" placeholder="Bengaluru, Karnataka"></label>
+            </div>
+
+            <div class="settings-card">
+                <h3>Contact & support</h3>
+                <label>Official email<input name="institution_email" type="email" value="{{ settings.get('institution_email', '') }}" placeholder="admissions@college.edu.in"></label>
+                <label>Helpline number<input name="institution_phone" value="{{ settings.get('institution_phone', '') }}" placeholder="+91 98765 43210"></label>
+                <label>Demo banner<input name="demo_banner" value="{{ settings.get('demo_banner', '') }}" required></label>
+            </div>
+
+            <div class="settings-card wide-card">
+                <h3>Academic & verification controls</h3>
+                <label>Academic year<input name="academic_year" value="{{ settings.get('academic_year', '') }}" required></label>
+                <label>APAAR validation rule<input name="apaar_rule" value="{{ settings.get('apaar_rule', '') }}" required></label>
+                <label>Verification policy<textarea name="verification_policy" rows="4" placeholder="Describe the compliance rule for records" required>{{ settings.get('verification_policy', '') }}</textarea></label>
+            </div>
+        </div>
+
+        <div class="form-actions full-width">
+            <button type="submit" class="btn btn-primary">Save settings</button>
+            <button type="reset" class="btn btn-secondary">Reset</button>
+        </div>
+    </form>
+
+    <div class="table-card margin-top">
+        <div class="table-header">
+            <h3>Configured Programmes</h3>
+            <span>{{ programmes|length }} active programmes</span>
+        </div>
+        <table>
+            <thead>
+                <tr><th>Programme</th><th>Approved Intake</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for program in programmes %}
+                <tr>
+                    <td>{{ program.programme_name }}</td>
+                    <td>{{ program.intake_limit }}</td>
+                    <td><span class="status-badge status-within-limit">Stable</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

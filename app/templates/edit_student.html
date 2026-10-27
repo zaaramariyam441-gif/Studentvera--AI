@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Edit Student | STUDENTVERA AI{% endblock %}
+{% block heading %}Edit Student{% endblock %}
+{% block content %}
+<div class="page-card narrow">
+    <h2>Update Student Record</h2>
+    <form method="POST" class="form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Student ID<input name="student_id" value="{{ student.student_id }}" required></label>
+        <label>Student Name<input name="name" value="{{ student.name }}" required></label>
+        <label>APAAR ID<input name="apara_id" value="{{ student.apara_id }}" required></label>
+        <label>Programme<input name="programme" value="{{ student.programme }}" required></label>
+        <label>Department<input name="department" value="{{ student.department }}" required></label>
+        <label>Academic Year<input name="academic_year" value="{{ student.academic_year }}" required></label>
+        <label>Admission Date<input type="date" name="admission_date" value="{{ student.admission_date }}" required></label>
+        <label>Admission Status<select name="admission_status" required>
+            <option value="ADMITTED" {% if student.admission_status == 'ADMITTED' %}selected{% endif %}>ADMITTED</option>
+            <option value="WAITLISTED" {% if student.admission_status == 'WAITLISTED' %}selected{% endif %}>WAITLISTED</option>
+            <option value="REJECTED" {% if student.admission_status == 'REJECTED' %}selected{% endif %}>REJECTED</option>
+        </select></label>
+        <div class="form-actions full-width">
+            <button type="submit" class="btn btn-primary">Update record</button>
+            <a href="{{ url_for('students.view_student', student_id=student.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
