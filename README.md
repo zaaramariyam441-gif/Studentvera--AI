@@ -1,8 +1,6 @@
-<<<<<<< HEAD
-# Studentvera--AI
-Less spreadsheet archaeology. Fewer duplicate records. More intelligent verification. Because academic administration deserves better plotlines. | SIH 2026.
-=======
 # STUDENTVERA AI
+
+Less spreadsheet archaeology. Fewer duplicate records. More intelligent verification. Because academic administration deserves better plotlines. | SIH 2026.
 
 STUDENTVERA AI is a prototype for an APAAR ID-based student data management and verification platform for AICTE-approved institutions.
 
@@ -68,6 +66,8 @@ python scripts/seed_demo_data.py
 
 ## Run the app
 
+For local development on Windows:
+
 ```bash
 python run.py
 ```
@@ -75,6 +75,14 @@ python run.py
 Open:
 
 http://127.0.0.1:5000/login
+
+For production deployment on a supported Linux environment, install dependencies and run Gunicorn from the project root:
+
+```bash
+gunicorn --bind 0.0.0.0:8000 run:app
+```
+
+Gunicorn is a production WSGI server and is not supported on Windows; use the development command above for local Windows development.
 
 ## Demo login credentials
 
@@ -98,4 +106,3 @@ http://127.0.0.1:5000/login
 - The application uses fictional data only.
 - All charts and stats are generated from actual database rows.
 - The application is intentionally designed as a local prototype for Smart India Hackathon demonstration.
->>>>>>> 177035d (feat: initialize Studentvera AI prototype)
