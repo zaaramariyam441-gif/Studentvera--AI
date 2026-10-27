@@ -6,7 +6,9 @@
         <div class="login-header">
             <div class="brand-mark brand-mark-large">S</div>
             <h1>STUDENTVERA AI</h1>
+            {% if config.get('DEMO_MODE') %}
             <p>DEMONSTRATION ENVIRONMENT — FICTIONAL DATA</p>
+            {% endif %}
         </div>
         <form method="POST" action="{{ url_for('auth.login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -16,11 +18,13 @@
             <input id="password" name="password" type="password" placeholder="Enter password" required>
             <button type="submit" class="btn btn-primary btn-block">Login</button>
         </form>
+        {% if config.get('DEMO_MODE') %}
         <div class="demo-credentials">
             <h3>Demo credentials</h3>
             <p><strong>Admin:</strong> admin@demo.local / Admin@123</p>
             <p><strong>Operator:</strong> operator@demo.local / Operator@123</p>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

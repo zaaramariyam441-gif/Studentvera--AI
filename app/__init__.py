@@ -1,7 +1,9 @@
+import click
 from flask import Flask, render_template
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
+from sqlalchemy.exc import SQLAlchemyError
 from .models import db, User, AppSetting
 
 login_manager = LoginManager()
@@ -70,6 +72,50 @@ def create_app(test_config=None):
     app.register_blueprint(reports_bp)
     app.register_blueprint(audit_bp)
     app.register_blueprint(settings_bp)
+
+    @app.cli.command("init-demo-users")
+    def init_demo_users_command():
+        if not app.config.get("DEMO_MODE"):
+            raise click.ClickException("Demo-user initialization requires DEMO_MODE=true.")
+
+        credentials = [
+            ("admin", "admin@demo.local", "ADMIN", app.config.get("DEMO_ADMIN_PASSWORD")),
+            ("operator", "operator@demo.local", "INSTITUTION_OPERATOR", app.config.get("DEMO_OPERATOR_PASSWORD")),
+        ]
+        if any(not password for _, _, _, password in credentials):
+            raise click.ClickException(
+                "Set DEMO_ADMIN_PASSWORD and DEMO_OPERATOR_PASSWORD before initializing demo accounts."
+            )
+
+        created = 0
+        preserved = 0
+        try:
+            for username, email, role, password in credentials:
+                email_user = User.query.filter_by(email=email).first()
+                username_user = User.query.filter_by(username=username).first()
+                if email_user or username_user:
+                    if email_user is None or username_user is None or email_user.id != username_user.id:
+                        db.session.rollback()
+                        raise click.ClickException(
+                            f"Cannot initialize {email}: its email or username is already assigned to another account."
+                        )
+                    preserved += 1
+                    continue
+
+                user = User(username=username, email=email, role=role)
+                user.set_password(password)
+                db.session.add(user)
+                created += 1
+
+            db.session.commit()
+        except SQLAlchemyError as error:
+            db.session.rollback()
+            app.logger.exception("Demo-user initialization failed.")
+            raise click.ClickException(
+                "Demo-user initialization failed. Check database connectivity and schema, then retry."
+            ) from error
+
+        click.echo(f"Demo-user initialization complete: {created} created, {preserved} existing account(s) preserved.")
 
     with app.app_context():
         db.create_all()
