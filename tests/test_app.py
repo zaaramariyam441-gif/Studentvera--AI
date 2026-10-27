@@ -32,7 +32,7 @@ def client():
 
 
 def test_login_and_logout(client):
-    response = client.post('/login', data={'email': 'admin@demo.local', 'password': 'Admin@123'})
+    response = client.post('/login', data={'username': 'ADMIN', 'password': 'Admin@123'})
     assert response.status_code == 302
     assert response.headers['Location'].endswith('/dashboard')
     response = client.get(response.headers['Location'], follow_redirects=True)
@@ -43,15 +43,36 @@ def test_login_and_logout(client):
     assert b'Login' in response.data
 
 
+def test_login_accepts_email_for_existing_users(client):
+    response = client.post('/login', data={
+        'username': 'ADMIN@DEMO.LOCAL',
+        'password': 'Admin@123',
+    })
+    assert response.status_code == 302
+    assert response.headers['Location'].endswith('/dashboard')
+
+
 @pytest.mark.parametrize(('email', 'password'), [
     ('admin@demo.local', 'wrong-password'),
     ('unknown@demo.local', 'Admin@123'),
 ])
-def test_login_rejects_invalid_password_and_unknown_email(client, email, password):
-    response = client.post('/login', data={'email': email, 'password': password}, follow_redirects=True)
+def test_login_rejects_invalid_password_and_unknown_email(client, email, password, caplog):
+    caplog.set_level('WARNING')
+    response = client.post('/login', data={'username': email, 'password': password}, follow_redirects=True)
     assert response.status_code == 200
     assert b'Invalid email or password.' in response.data
     assert b'Logout' not in response.data
+    expected_stage = 'password_verification' if email == 'admin@demo.local' else 'account_lookup'
+    assert f'stage={expected_stage}' in caplog.text
+    assert email not in caplog.text
+    assert password not in caplog.text
+
+
+def test_login_form_uses_username_and_password_fields(client):
+    response = client.get('/login')
+    assert response.status_code == 200
+    assert b'name="username"' in response.data
+    assert b'name="password"' in response.data
 
 
 def test_demo_user_initialization_is_explicit_idempotent_and_preserves_existing_credentials():
@@ -97,6 +118,189 @@ def test_demo_user_initialization_requires_demo_mode(client):
     result = client.application.test_cli_runner().invoke(args=['init-demo-users'])
     assert result.exit_code != 0
     assert 'requires DEMO_MODE=true' in result.output
+
+
+def test_admin_bootstrap_creates_hashed_admin_and_allows_login():
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'BOOTSTRAP_ADMIN_USERNAME': 'institution-admin',
+        'BOOTSTRAP_ADMIN_EMAIL': 'Admin@institution.example',
+        'BOOTSTRAP_ADMIN_PASSWORD': 'a-long-private-password',
+    })
+    result = app.test_cli_runner().invoke(args=['bootstrap-admin'])
+    assert result.exit_code == 0, result.output
+    assert 'Administrator account created' in result.output
+
+    with app.app_context():
+        admin = User.query.filter_by(email='admin@institution.example').one()
+        assert admin.username == 'institution-admin'
+        assert admin.role == 'ADMIN'
+        assert admin.password_hash != 'a-long-private-password'
+        assert admin.check_password('a-long-private-password')
+
+    response = app.test_client().post('/login', data={
+        'username': 'institution-admin',
+        'password': 'a-long-private-password',
+    })
+    assert response.status_code == 302
+    assert response.headers['Location'].endswith('/dashboard')
+
+
+def test_admin_password_reset_updates_only_target_admin_and_allows_login():
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'ADMIN_RESET_USERNAME': 'existing-admin',
+        'ADMIN_RESET_NEW_USERNAME': 'new-admin',
+        'ADMIN_RESET_PASSWORD': 'new-secure-admin-password',
+        'CONFIRM_ADMIN_PASSWORD_RESET': 'YES',
+    })
+    with app.app_context():
+        admin = User(
+            username='existing-admin',
+            email='existing-admin@institution.example',
+            role='ADMIN',
+        )
+        admin.set_password('old-secure-admin-password')
+        operator = User(
+            username='operator',
+            email='operator@institution.example',
+            role='INSTITUTION_OPERATOR',
+        )
+        operator.set_password('operator-secure-password')
+        db.session.add_all([admin, operator])
+        db.session.commit()
+        operator_hash = operator.password_hash
+
+    result = app.test_cli_runner().invoke(args=['reset-admin-password'])
+    assert result.exit_code == 0, result.output
+
+    with app.app_context():
+        admin = User.query.filter_by(email='existing-admin@institution.example').one()
+        operator = User.query.filter_by(username='operator').one()
+        assert admin.username == 'new-admin'
+        assert admin.role == 'ADMIN'
+        assert admin.password_hash != 'new-secure-admin-password'
+        assert admin.check_password('new-secure-admin-password')
+        assert not admin.check_password('old-secure-admin-password')
+        assert operator.password_hash == operator_hash
+        assert operator.check_password('operator-secure-password')
+
+    client = app.test_client()
+    old_password_response = client.post('/login', data={
+        'username': 'new-admin',
+        'password': 'old-secure-admin-password',
+    })
+    assert old_password_response.status_code == 200
+    new_password_response = client.post('/login', data={
+        'username': 'new-admin',
+        'password': 'new-secure-admin-password',
+    })
+    assert new_password_response.status_code == 302
+    assert new_password_response.headers['Location'].endswith('/dashboard')
+
+
+def test_admin_password_reset_requires_explicit_confirmation():
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'ADMIN_RESET_USERNAME': 'existing-admin',
+        'ADMIN_RESET_PASSWORD': 'new-secure-admin-password',
+    })
+    with app.app_context():
+        admin = User(
+            username='existing-admin',
+            email='existing-admin@institution.example',
+            role='ADMIN',
+        )
+        admin.set_password('old-secure-admin-password')
+        db.session.add(admin)
+        db.session.commit()
+        original_hash = admin.password_hash
+
+    result = app.test_cli_runner().invoke(args=['reset-admin-password'])
+    assert result.exit_code != 0
+    assert 'CONFIRM_ADMIN_PASSWORD_RESET=YES' in result.output
+
+    with app.app_context():
+        admin = User.query.filter_by(username='existing-admin').one()
+        assert admin.password_hash == original_hash
+        assert admin.check_password('old-secure-admin-password')
+
+
+def test_admin_bootstrap_refuses_existing_admin_without_changing_it():
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'BOOTSTRAP_ADMIN_USERNAME': 'new-admin',
+        'BOOTSTRAP_ADMIN_EMAIL': 'new-admin@institution.example',
+        'BOOTSTRAP_ADMIN_PASSWORD': 'a-long-private-password',
+    })
+    with app.app_context():
+        existing = User(username='existing-admin', email='existing@institution.example', role='ADMIN')
+        existing.set_password('existing-password')
+        db.session.add(existing)
+        db.session.commit()
+        original_hash = existing.password_hash
+
+    result = app.test_cli_runner().invoke(args=['bootstrap-admin'])
+    assert result.exit_code != 0
+    assert 'administrator account already exists' in result.output
+    with app.app_context():
+        assert User.query.count() == 1
+        existing = User.query.filter_by(email='existing@institution.example').one()
+        assert existing.password_hash == original_hash
+        assert existing.check_password('existing-password')
+
+
+def test_admin_bootstrap_refuses_username_or_email_collision():
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'BOOTSTRAP_ADMIN_USERNAME': 'existing-user',
+        'BOOTSTRAP_ADMIN_EMAIL': 'new-admin@institution.example',
+        'BOOTSTRAP_ADMIN_PASSWORD': 'a-long-private-password',
+    })
+    with app.app_context():
+        existing = User(username='existing-user', email='operator@institution.example')
+        existing.set_password('existing-password')
+        db.session.add(existing)
+        db.session.commit()
+
+    result = app.test_cli_runner().invoke(args=['bootstrap-admin'])
+    assert result.exit_code != 0
+    assert 'already assigned' in result.output
+    with app.app_context():
+        assert User.query.count() == 1
+        assert User.query.filter_by(role='ADMIN').count() == 0
+
+
+@pytest.mark.parametrize(('config', 'message'), [
+    ({}, 'Set BOOTSTRAP_ADMIN_USERNAME'),
+    ({
+        'BOOTSTRAP_ADMIN_USERNAME': 'admin',
+        'BOOTSTRAP_ADMIN_EMAIL': 'admin@institution.example',
+        'BOOTSTRAP_ADMIN_PASSWORD': 'short',
+    }, 'at least 12 characters'),
+])
+def test_admin_bootstrap_rejects_missing_or_weak_credentials(config, message):
+    app = create_app({
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        **config,
+    })
+    result = app.test_cli_runner().invoke(args=['bootstrap-admin'])
+    assert result.exit_code != 0
+    assert message in result.output
+    with app.app_context():
+        assert User.query.count() == 0
 
 
 def test_login_csrf_protection_remains_enabled():

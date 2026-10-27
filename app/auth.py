@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import check_password_hash
+from sqlalchemy.exc import SQLAlchemyError
 from .models import db, User, AuditLog
 
 auth_bp = Blueprint("auth", __name__)
@@ -9,15 +9,54 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        identifier = (
+            request.form.get("username") or request.form.get("email", "")
+        ).strip().lower()
         password = request.form.get("password", "")
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password_hash, password):
+        if not identifier or not password:
+            current_app.logger.warning(
+                "Login rejected (stage=form_fields, reason=missing_required_field)"
+            )
+            flash("Invalid email or password.", "danger")
+            return render_template("login.html")
+
+        try:
+            identifier_column = User.email if "@" in identifier else User.username
+            user = User.query.filter(
+                db.func.lower(identifier_column) == identifier
+            ).first()
+        except SQLAlchemyError as error:
+            current_app.logger.error(
+                "Login failed (stage=account_lookup, error_type=%s)",
+                type(error).__name__,
+            )
+            raise
+
+        if user is None:
+            current_app.logger.warning(
+                "Login rejected (stage=account_lookup, reason=no_matching_identifier)"
+            )
+            flash("Invalid email or password.", "danger")
+            return render_template("login.html")
+
+        try:
+            password_matches = user.check_password(password)
+        except (TypeError, ValueError) as error:
+            current_app.logger.error(
+                "Login failed (stage=password_verification, error_type=%s)",
+                type(error).__name__,
+            )
+            raise
+
+        if password_matches:
             login_user(user)
             db.session.add(AuditLog(event_type="login", description=f"Successful login for {user.email}", user_id=user.id))
             db.session.commit()
             flash("Login successful.", "success")
             return redirect(url_for("dashboard.overview"))
+        current_app.logger.warning(
+            "Login rejected (stage=password_verification, reason=mismatch)"
+        )
         flash("Invalid email or password.", "danger")
     return render_template("login.html")
 

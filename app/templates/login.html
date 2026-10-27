@@ -12,8 +12,8 @@
         </div>
         <form method="POST" action="{{ url_for('auth.login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label for="email">Institution email</label>
-            <input id="email" name="email" type="email" placeholder="admin@demo.local" required>
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" placeholder="admin" autocomplete="username" required>
             <label for="password">Password</label>
             <input id="password" name="password" type="password" placeholder="Enter password" required>
             <button type="submit" class="btn btn-primary btn-block">Login</button>
@@ -21,8 +21,8 @@
         {% if config.get('DEMO_MODE') %}
         <div class="demo-credentials">
             <h3>Demo credentials</h3>
-            <p><strong>Admin:</strong> admin@demo.local / Admin@123</p>
-            <p><strong>Operator:</strong> operator@demo.local / Operator@123</p>
+            <p><strong>Admin:</strong> admin / Admin@123</p>
+            <p><strong>Operator:</strong> operator / Operator@123</p>
         </div>
         {% endif %}
     </div>

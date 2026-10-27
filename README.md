@@ -70,6 +70,75 @@ This command targets the database configured by `DATABASE_URL`. It requires demo
 
 These are public fictional demo credentials and are insecure by design. Keep the demo instance separate from real student information. For a private/production deployment, leave `DEMO_MODE=false` and use a controlled account-provisioning process.
 
+### Sign in and diagnose a failed Render login
+
+Sign in with the account username and password. Email addresses are also accepted for existing accounts. Both identifiers are matched case-insensitively; passwords are checked against the stored Werkzeug hash.
+
+The login route logs only the failure stage and reason; it never logs the submitted username, email, password, password hash, session cookie, or database URL. In Render's service Logs:
+
+- `stage=account_lookup, reason=no_matching_identifier` means no account matched the submitted username/email in the selected database.
+- `stage=password_verification, reason=mismatch` means an account was found but its stored hash did not verify the submitted password.
+- `stage=account_lookup, error_type=...` means the account query failed; check the database connection and `users` table/schema.
+
+To confirm which kind of database the deployed service uses and whether the account exists, open the service Shell and run `flask --app run shell`, then:
+
+```python
+from sqlalchemy import func
+from app.models import User, db
+
+url = db.engine.url
+print({
+    "driver": url.drivername,
+    "host_configured": bool(url.host),
+    "database_configured": bool(url.database),
+    "user_count": User.query.count(),
+})
+identifier = input("Account username or email to check: ").strip().lower()
+print({
+    "matching_accounts": User.query.filter(
+        (func.lower(User.username) == identifier)
+        | (func.lower(User.email) == identifier)
+    ).count(),
+})
+```
+
+Do not print or share `DATABASE_URL`; in the Render dashboard, verify it points to the intended PostgreSQL database. The query above does not read or display password hashes. If no account matches, verify the intended production account rather than resetting the database or disabling verification.
+
+The demo passwords shown on the login screen work only if those demo accounts were initialized in the database with those passwords. `init-demo-users` preserves existing accounts, including their passwords; running it again does not reset them.
+
+#### Reset an existing administrator password
+
+Deploy the application code containing the `reset-admin-password` CLI command first. In the Render service's Environment settings, temporarily set:
+
+- `ADMIN_RESET_USERNAME` to the current username of the administrator account.
+- `ADMIN_RESET_PASSWORD` to a new unique password of at least 12 characters.
+- `CONFIRM_ADMIN_PASSWORD_RESET=YES` to explicitly authorize the change.
+- Optionally, `ADMIN_RESET_NEW_USERNAME` to change that account's username; omit it to keep the current username.
+
+Do not put the password in source control or in a command-line argument. Use the Render Shell for the same web service, confirm its `DATABASE_URL` is configured for the intended production database (do not print or share the URL), and run:
+
+```bash
+flask --app run reset-admin-password
+```
+
+The command updates exactly one existing account whose current username matches and whose role is `ADMIN`. It rejects missing/ambiguous targets, a username already used by another account, missing confirmation, or a password shorter than 12 characters. It changes no other users, email addresses, roles, or records; the password is hashed using `User.set_password()`. After success, remove `ADMIN_RESET_USERNAME`, `ADMIN_RESET_NEW_USERNAME` (if set), `ADMIN_RESET_PASSWORD`, and `CONFIRM_ADMIN_PASSWORD_RESET` from Render's environment, then sign in using the resulting username and new password. Verify login in the deployed application; the CLI success message alone does not confirm the browser login.
+
+If no administrator account exists, use the `bootstrap-admin` creation procedure below instead. That command refuses to overwrite an existing administrator. Neither procedure resets the database.
+
+### Bootstrap a production administrator
+
+Web startup does not create an administrator. To create the first administrator in the Render database without resetting records:
+
+1. In the Render service environment, temporarily set `BOOTSTRAP_ADMIN_USERNAME`, `BOOTSTRAP_ADMIN_EMAIL`, and a unique `BOOTSTRAP_ADMIN_PASSWORD` of at least 12 characters. Do not put the password in source control or in a command-line argument.
+2. Open the deployed service Shell and run:
+   ```bash
+   flask --app run bootstrap-admin
+   ```
+3. Sign in using the configured email and password.
+4. Remove all three `BOOTSTRAP_ADMIN_*` variables from the Render environment.
+
+The one-time command creates an `ADMIN` account in the database selected by `DATABASE_URL`, hashes the password, and refuses to run if an administrator already exists or if the username/email is already assigned. It never resets an existing account. If an administrator already exists but its credentials are unknown, use the reset procedure above rather than rerunning bootstrap. Do not use the destructive seed script on a database with records to preserve.
+
 The legacy `scripts/seed_demo_data.py` script drops and recreates tables and data. It is for disposable local databases only; never run it against Render or a database containing records you need.
 
 ## Features

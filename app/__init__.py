@@ -117,6 +117,100 @@ def create_app(test_config=None):
 
         click.echo(f"Demo-user initialization complete: {created} created, {preserved} existing account(s) preserved.")
 
+    @app.cli.command("bootstrap-admin")
+    def bootstrap_admin_command():
+        if User.query.filter_by(role="ADMIN").first():
+            raise click.ClickException(
+                "An administrator account already exists; bootstrap will not modify existing accounts."
+            )
+
+        username = (app.config.get("BOOTSTRAP_ADMIN_USERNAME") or "").strip()
+        email = (app.config.get("BOOTSTRAP_ADMIN_EMAIL") or "").strip().lower()
+        password = app.config.get("BOOTSTRAP_ADMIN_PASSWORD") or ""
+        if not username or not email or not password:
+            raise click.ClickException(
+                "Set BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_EMAIL, and BOOTSTRAP_ADMIN_PASSWORD before running this command."
+            )
+        if len(password) < 12:
+            raise click.ClickException("BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters.")
+
+        existing_account = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        if existing_account:
+            raise click.ClickException(
+                "The configured username or email is already assigned; bootstrap will not modify existing accounts."
+            )
+
+        user = User(username=username, email=email, role="ADMIN")
+        user.set_password(password)
+        try:
+            db.session.add(user)
+            db.session.commit()
+        except SQLAlchemyError:
+            db.session.rollback()
+            app.logger.error("Administrator bootstrap failed because of a database error.")
+            raise click.ClickException(
+                "Administrator bootstrap failed. Check database connectivity and schema, then retry."
+            ) from None
+
+        click.echo("Administrator account created. Remove the bootstrap credentials from the environment now.")
+
+    @app.cli.command("reset-admin-password")
+    def reset_admin_password_command():
+        if app.config.get("CONFIRM_ADMIN_PASSWORD_RESET") != "YES":
+            raise click.ClickException(
+                "Set CONFIRM_ADMIN_PASSWORD_RESET=YES to authorize an administrator password reset."
+            )
+
+        target_username = (app.config.get("ADMIN_RESET_USERNAME") or "").strip().lower()
+        new_username = (
+            app.config.get("ADMIN_RESET_NEW_USERNAME") or target_username
+        ).strip()
+        password = app.config.get("ADMIN_RESET_PASSWORD") or ""
+        if not target_username or not new_username or not password:
+            raise click.ClickException(
+                "Set ADMIN_RESET_USERNAME, ADMIN_RESET_PASSWORD, and optionally ADMIN_RESET_NEW_USERNAME."
+            )
+        if len(password) < 12:
+            raise click.ClickException("ADMIN_RESET_PASSWORD must be at least 12 characters.")
+        if len(new_username) > 120:
+            raise click.ClickException("Administrator usernames must be 120 characters or fewer.")
+
+        matching_admins = User.query.filter(
+            db.func.lower(User.username) == target_username,
+            User.role == "ADMIN",
+        ).all()
+        if len(matching_admins) != 1:
+            raise click.ClickException(
+                "The target username must match exactly one existing administrator account."
+            )
+        admin = matching_admins[0]
+
+        username_collision = User.query.filter(
+            db.func.lower(User.username) == new_username.lower(),
+            User.id != admin.id,
+        ).first()
+        if username_collision:
+            raise click.ClickException(
+                "The requested administrator username is already assigned to another account."
+            )
+
+        admin.username = new_username
+        admin.set_password(password)
+        try:
+            db.session.commit()
+        except SQLAlchemyError:
+            db.session.rollback()
+            app.logger.error("Administrator password reset failed because of a database error.")
+            raise click.ClickException(
+                "Administrator password reset failed. Check database connectivity and retry."
+            ) from None
+
+        click.echo(
+            "Administrator credentials updated. Remove the reset variables from the environment now."
+        )
+
     with app.app_context():
         db.create_all()
         ensure_defaults()
